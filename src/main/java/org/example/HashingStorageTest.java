@@ -4,6 +4,8 @@ package org.example;
 import org.example.storage.HashingStorage;
 import org.example.storage.User;
 
+import java.util.Scanner;
+
 public class HashingStorageTest {
 
     public static void main(String[] args) {
@@ -275,6 +277,102 @@ public class HashingStorageTest {
             storage.getUserSeq(999999999L);
             endTime = System.nanoTime();
             System.out.println("Tiempo getUserSeq (secuencial): " + (endTime - startTime) + " ns (" + (endTime - startTime) / 1_000_000.0 + " ms)");
+
+            // ===================== MENÚ INTERACTIVO =====================
+            Scanner scanner = new Scanner(System.in);
+            System.out.println("\n========================================");
+            System.out.println("  Bienvenido al Sistema de Usuarios");
+            System.out.println("  (Extendible Hashing Storage)");
+            System.out.println("========================================");
+
+            boolean running = true;
+            while (running) {
+                System.out.println("\n--- Menú Principal ---");
+                System.out.println("1. Agregar usuario");
+                System.out.println("2. Buscar usuario por Hashing");
+                System.out.println("3. Buscar usuario por búsqueda Secuencial");
+                System.out.println("4. Mostrar todos los usuarios");
+                System.out.println("5. Mostrar cantidad de usuarios");
+                System.out.println("6. Salir");
+                System.out.print("Seleccione una opción: ");
+
+                String opcion = scanner.nextLine().trim();
+
+                switch (opcion) {
+                    case "1":
+                        System.out.print("Ingrese la CC: ");
+                        long cc = Long.parseLong(scanner.nextLine().trim());
+                        System.out.print("Ingrese el nombre: ");
+                        String nombre = scanner.nextLine().trim();
+                        System.out.print("Ingrese el email: ");
+                        String email = scanner.nextLine().trim();
+
+                        User nuevoUsuario = new User(cc, nombre, email);
+                        boolean agregado = storage.addUser(nuevoUsuario);
+                        if (agregado) {
+                            System.out.println("✔ Usuario agregado exitosamente.");
+                        } else {
+                            System.out.println("✘ No se pudo agregar el usuario (CC duplicada).");
+                        }
+                        break;
+
+                    case "2":
+                        System.out.print("Ingrese la CC a buscar: ");
+                        long ccHash = Long.parseLong(scanner.nextLine().trim());
+
+                        startTime = System.nanoTime();
+                        User resultHash = storage.getUser(ccHash);
+                        endTime = System.nanoTime();
+
+                        if (resultHash != null) {
+                            System.out.println("\n=== Usuario encontrado (Hashing) ===");
+                            System.out.println("  CC:     " + resultHash.getCc());
+                            System.out.println("  Nombre: " + resultHash.getName());
+                            System.out.println("  Email:  " + resultHash.getEmail());
+                        } else {
+                            System.out.println("Usuario no encontrado.");
+                        }
+                        System.out.println("Tiempo: " + (endTime - startTime) + " ns (" + (endTime - startTime) / 1_000_000.0 + " ms)");
+                        break;
+
+                    case "3":
+                        System.out.print("Ingrese la CC a buscar: ");
+                        long ccSeq = Long.parseLong(scanner.nextLine().trim());
+
+                        startTime = System.nanoTime();
+                        User resultSeq = storage.getUserSeq(ccSeq);
+                        endTime = System.nanoTime();
+
+                        if (resultSeq != null) {
+                            System.out.println("\n=== Usuario encontrado (Secuencial) ===");
+                            System.out.println("  CC:     " + resultSeq.getCc());
+                            System.out.println("  Nombre: " + resultSeq.getName());
+                            System.out.println("  Email:  " + resultSeq.getEmail());
+                        } else {
+                            System.out.println("Usuario no encontrado.");
+                        }
+                        System.out.println("Tiempo: " + (endTime - startTime) + " ns (" + (endTime - startTime) / 1_000_000.0 + " ms)");
+                        break;
+
+                    case "4":
+                        storage.getAllUsers();
+                        break;
+
+                    case "5":
+                        System.out.println("Cantidad de usuarios almacenados: " + storage.getUserCount());
+                        break;
+
+                    case "6":
+                        System.out.println("¡Hasta luego!");
+                        running = false;
+                        break;
+
+                    default:
+                        System.out.println("Opción no válida. Intente de nuevo.");
+                        break;
+                }
+            }
+            scanner.close();
 
 
 
