@@ -6,6 +6,10 @@ import org.example.storage.User;
 
 import java.util.Scanner;
 
+/**
+ * @author Leon Andres Rojas Martínez - leon.rojasm@udea.edu.co
+ * @author Ulises Orozco Villegas - ulises.orozco@udea.edu.co
+ */
 public class HashingStorageTest {
 
     public static void main(String[] args) {
@@ -13,6 +17,7 @@ public class HashingStorageTest {
         try {
             storage.initializeFiles();
 
+            // Creación de 100 usuarios con datos variados como set de prueba
             User usuario1 = new User(123456789L, "Juan Pérez", "juan.perez@mail.com");
             User usuario2 = new User(987654321L, "María Gómez", "maria.gomez@hotmail.com");
             User usuario3 = new User(555555555L, "Carlos Rodríguez", "carlos.rod@gmail.com");
@@ -113,6 +118,7 @@ public class HashingStorageTest {
             User usuario98 = new User(100000088L, "Stella Montealegre", "stella.montealegre@yahoo.com");
             User usuario99 = new User(100000089L, "Fabio Restrepo", "fabio.restrepo@outlook.com");
             User usuario100 = new User(100000090L, "Marta Aristizábal", "marta.aristizabal@mail.com");
+
 
             storage.addUser(usuario1);
             storage.addUser(usuario2);
@@ -215,7 +221,10 @@ public class HashingStorageTest {
             storage.addUser(usuario99);
             storage.addUser(usuario100);
 
-            storage.addUser(usuario100); // Intento de agregar un usuario con CC duplicado
+            if(storage.addUser(usuario100))
+                System.out.println("Usuario agregado: CC=" + usuario1.getCc() + ", Nombre=" + usuario1.getName() + ", Email=" + usuario1.getEmail());
+            else
+                System.out.println("Usuario con CC " + usuario1.getCc() + " ya existe. No se permite duplicados.");
 
             storage.getAllUsers();
             System.out.println("-----------------------------");
