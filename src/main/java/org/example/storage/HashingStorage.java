@@ -1,3 +1,7 @@
+/**
+ * @author Leon Andres Rojas Martínez - leon.rojasm@udea.edu.co
+ * @author Ulises Orozco Villegas - ulises.orozco@udea.edu.co
+ */
 package org.example.storage;
 
 import java.io.IOException;
@@ -101,16 +105,13 @@ public class HashingStorage {
 
     public boolean addUser(User usuarioData) throws Exception {
         //Primero verificamos que el usuario no exista previamente para evitar duplicados.
-        if(getUser(usuarioData.cc) != null){
-            System.out.println("Usuario con CC " + usuarioData.cc + " ya existe. No se permite duplicados.");
+        if(getUser(usuarioData.cc) != null)
             return false;
-        }
 
         // Primero almacenar al final del archivo de datos para obtener el offset correspondiente
         long dataOffset = addUserData(usuarioData);
         //Segundo, insertar la entrada (cc, dataOffset) en el bucket correspondiente segun el directorio y la función hash. Si el bucket está lleno, se divide y se reintenta la inserción.
         insertEntry(usuarioData.cc, dataOffset);
-        System.out.println("Usuario agregado: CC=" + usuarioData.cc + ", Nombre=" + usuarioData.name + ", Email=" + usuarioData.email);
         return true;
     }
 
@@ -159,8 +160,11 @@ public class HashingStorage {
                 int localDepth = bucketsFile.readInt();
                 int count = bucketsFile.readInt();
 
-                //CASO en el que aun hay espacio en el bucket para insertar la nueva entrada sin necesidad de dividirlo.
-                // Si hay espacio, insertar directamente
+
+                // CASO 1: Split sin duplicar el directorio (localDepth < globalDepth)
+                // En este caso aun tenemos espacio en el directorio para crear un nuevo bucket sin necesidad de duplicarlo,
+                // por lo que simplemente creamos el nuevo bucket, actualizamos los punteros del directorio y redistribuimos
+                // las entradas entre el bucket original y el nuevo.
                 if (count < BUCKET_CAPACITY) {
                     //Nos ubicamos en el offset del bucket, saltamos los 8 bytes de la cabecera (localDepth + count) y luego avanzamos
                     // count * 16 bytes para posicionarnos al final de las entradas actuales (cada entrada ocupa 16 bytes: 8 para cc y 8 para dataOffset).
@@ -173,10 +177,6 @@ public class HashingStorage {
                     return;
                 }
 
-                //CASO en el que el bucket ya alcanzó su capacidad máxima, por lo que debemos dividirlo para poder insertar la nueva entrada.
-                // El proceso de división implica crear un nuevo bucket, redistribuir las entradas entre el bucket original y el nuevo,
-                // y actualizar los punteros en el directorio.
-                // Leer las entradas existentes del bucket lleno
                 long[] existingCCs = new long[count];
                 long[] existingOffsets = new long[count];
                 // Nos posicionamos en el offset del bucket, saltamos los 8 bytes de la cabecera (localDepth + count) y luego leemos las entradas
@@ -187,9 +187,10 @@ public class HashingStorage {
                     existingOffsets[i] = bucketsFile.readLong();
                 }
 
-                //CASO en el que el LD=GD, en este caso, antes de dividir el bucket, debemos duplicar el directorio para aumentar la capacidad
-                // de direccionamiento y permitir la creación de nuevos buckets.
-                //Si la profundidad local == global, duplicar el directorio
+                // CASO 2: Split con duplicación del directorio (localDepth == globalDepth)
+                // En este caso, el bucket está lleno y además no tenemos espacio en el directorio para crear un nuevo bucket,
+                // por lo que debemos duplicar el directorio antes de dividir el bucket.
+                // Debemos duplicar el directorio para aumentar la capacidad de direccionamiento y permitir la creación de nuevos buckets.
                 if (localDepth == globalDepth) {
                     doubleDirectory(directoryFile, globalDepth);
                     globalDepth++; //En doubleDirectory ya se actualiza el valor de globalDepth en el archivo, pero es necesario actualizar la variable en memoria para que el resto del código funcione correctamente con la nueva profundidad global.
@@ -228,15 +229,26 @@ public class HashingStorage {
 
                 // Redistribuir las entradas existentes entre los dos buckets
                 for (int i = 0; i < existingCCs.length; i++) {
+                    // Recalculamos el índice del directorio para cada CC existente usando la nueva profundidad global,
+                    // lo que nos permitirá determinar a qué bucket debe ir cada entrada (viejo o nuevo).
                     int idx = hash(existingCCs[i]) & ((1 << globalDepth) - 1);
+                    // Saltamos los 4 bytes de la profundidad global en el directorio y luego multiplicamos el índice
+                    // por 8 para obtener la posición del puntero al bucket destino, el cual puede ser el bucket
+                    // original o el nuevo dependiendo del bit en la posición localDepth.
                     directoryFile.seek(4 + idx * 8L);
                     long targetBucket = directoryFile.readLong();
 
+                    // Nos posicionamos en el campo count del bucket destino (offset + 4 bytes de localDepth)
                     bucketsFile.seek(targetBucket + 4);
+                    // Leemos cuántas entradas tiene actualmente el bucket destino
                     int targetCount = bucketsFile.readInt();
+                    // Nos posicionamos al final de las entradas existentes del bucket destino:
+                    // offset + 8 (cabecera: localDepth + count) + targetCount * 16 (cada entrada: 8 cc + 8 dataOffset)
                     bucketsFile.seek(targetBucket + 8 + (long) targetCount * 16);
+                    // Escribimos la CC y el dataOffset de la entrada redistribuida
                     bucketsFile.writeLong(existingCCs[i]);
                     bucketsFile.writeLong(existingOffsets[i]);
+                    // Volvemos al campo count del bucket destino para incrementarlo en 1
                     bucketsFile.seek(targetBucket + 4);
                     bucketsFile.writeInt(targetCount + 1);
                 }
@@ -336,7 +348,6 @@ public class HashingStorage {
         } catch (IOException e) {
             e.printStackTrace();
         }
-        System.out.println("Usuario con CC " + cc + " no encontrado.");
         return null;
     }
 }
